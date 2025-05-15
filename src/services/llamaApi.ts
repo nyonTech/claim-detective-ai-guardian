@@ -6,6 +6,9 @@
 // The base URL for the LLaMA API
 const LLAMA_API_URL = 'https://api.perplexity.ai/chat/completions';
 
+// The model to use for LLaMA API requests
+const LLAMA_MODEL = 'meta-llama/Llama-4-Scout-17B-16E-Instruct';
+
 // Helper function to get API key from localStorage or prompt user if not available
 const getLlamaApiKey = (): string => {
   const apiKey = localStorage.getItem('llama_api_key');
@@ -31,7 +34,7 @@ export const analyzeTextForFraud = async (text: string) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.1-sonar-small-128k-online',
+        model: LLAMA_MODEL,
         messages: [
           {
             role: 'system',
@@ -107,7 +110,7 @@ export const chatWithLlama = async (message: string, claimContext?: string) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.1-sonar-small-128k-online',
+        model: LLAMA_MODEL,
         messages: [
           {
             role: 'system',

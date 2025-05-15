@@ -53,13 +53,13 @@ const ApiKeyInput: React.FC<ApiKeyInputProps> = ({ onSubmit }) => {
     <div className="bg-white rounded-lg border border-gray-200 p-4">
       <div className="flex items-center gap-2 mb-3">
         <Key className="h-4 w-4 text-health-primary" />
-        <h3 className="font-medium text-gray-800">LLaMA API Key</h3>
+        <h3 className="font-medium text-gray-800">Llama API Key</h3>
       </div>
       
       <div className="space-y-4">
         <div>
           <label htmlFor="api-key" className="block text-sm font-medium text-gray-700 mb-1">
-            {isStored ? 'Your API key is saved' : 'Enter your LLaMA API Key'}
+            {isStored ? 'Your API key is saved' : 'Enter your Llama API Key (sk-...)'}
           </label>
           <div className="relative">
             <input
@@ -67,7 +67,7 @@ const ApiKeyInput: React.FC<ApiKeyInputProps> = ({ onSubmit }) => {
               type={isVisible ? 'text' : 'password'}
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder="pk-..."
+              placeholder="sk-4f8g..."
               className="input-field pr-10 w-full"
             />
             <button
@@ -80,6 +80,9 @@ const ApiKeyInput: React.FC<ApiKeyInputProps> = ({ onSubmit }) => {
           </div>
           <p className="mt-1 text-xs text-gray-500">
             Your API key is stored in your browser's local storage and is never sent to our servers.
+          </p>
+          <p className="mt-1 text-xs text-gray-600">
+            Model: meta-llama/Llama-4-Scout-17B-16E-Instruct
           </p>
         </div>
         
