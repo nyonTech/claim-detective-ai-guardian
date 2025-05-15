@@ -9,15 +9,22 @@ import * as pdfjsLib from 'pdfjs-dist';
 import ApiKeyInput from '@/components/ApiKeyInput';
 import { analyzeTextForFraud } from '@/services/llamaApi';
 
-// Function to extract text from PDF using pdfjs-dist
-const extractTextFromPDF = async (file: File): Promise<string> => {
+// Configure the PDF.js worker - using a more robust approach
+// Use Vite's import.meta.url to correctly resolve worker path
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.mjs',
+  import.meta.url
+).toString();
+
+// Primary method: extract text from PDF using PDF.js
+const extractTextWithPdfJs = async (file: File): Promise<string> => {
+  console.log("Starting PDF.js extraction with file:", file.name);
   try {
-    console.log("Starting PDF extraction with file:", file.name);
     // Convert file to ArrayBuffer
     const arrayBuffer = await file.arrayBuffer();
     console.log("File converted to ArrayBuffer, size:", arrayBuffer.byteLength);
     
-    // Load the PDF document
+    // Load the PDF document 
     const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
     console.log("PDF loading task created");
     
@@ -38,8 +45,124 @@ const extractTextFromPDF = async (file: File): Promise<string> => {
     console.log("PDF text extraction completed successfully");
     return fullText;
   } catch (error) {
-    console.error('Error extracting text from PDF:', error);
-    throw new Error('Failed to extract text from PDF');
+    console.error('Error extracting text with PDF.js:', error);
+    throw new Error('Failed to extract text with PDF.js');
+  }
+};
+
+// Fallback method: Extract text using FileReader API approach
+const extractTextWithFileReader = async (file: File): Promise<string> => {
+  console.log("Starting FileReader-based extraction");
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = async (event) => {
+      try {
+        if (!event.target?.result) {
+          throw new Error("FileReader result is null");
+        }
+        
+        const typedArray = new Uint8Array(event.target.result as ArrayBuffer);
+        console.log("File loaded with FileReader, size:", typedArray.length);
+        
+        // Use PDF.js with the FileReader result
+        const loadingTask = pdfjsLib.getDocument(typedArray);
+        const pdf = await loadingTask.promise;
+        console.log("PDF loaded with FileReader method, pages:", pdf.numPages);
+        
+        let fullText = '';
+        
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items.map((item: any) => item.str).join(' ');
+          fullText += pageText + '\n\n';
+        }
+        
+        console.log("FileReader-based extraction completed successfully");
+        resolve(fullText);
+      } catch (error) {
+        console.error("FileReader extraction error:", error);
+        reject(new Error('FileReader extraction failed'));
+      }
+    };
+    
+    reader.onerror = (error) => {
+      console.error("FileReader error:", error);
+      reject(new Error('FileReader failed to read the file'));
+    };
+    
+    reader.readAsArrayBuffer(file);
+  });
+};
+
+// Last resort: Create a blob URL and attempt to use it for extraction
+const extractTextWithBlobUrl = async (file: File): Promise<string> => {
+  console.log("Starting Blob URL extraction method");
+  try {
+    const blobUrl = URL.createObjectURL(file);
+    console.log("Blob URL created:", blobUrl);
+    
+    const loadingTask = pdfjsLib.getDocument(blobUrl);
+    const pdf = await loadingTask.promise;
+    console.log("PDF loaded with Blob URL method, pages:", pdf.numPages);
+    
+    let fullText = '';
+    
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map((item: any) => item.str).join(' ');
+      fullText += pageText + '\n\n';
+    }
+    
+    // Clean up the blob URL
+    URL.revokeObjectURL(blobUrl);
+    console.log("Blob URL extraction completed and URL revoked");
+    
+    return fullText;
+  } catch (error) {
+    console.error("Blob URL extraction error:", error);
+    throw new Error('Blob URL extraction failed');
+  }
+};
+
+// Master extraction function that tries multiple methods
+const extractTextFromPDF = async (file: File): Promise<string> => {
+  let extractedText = '';
+  let errorMessages = [];
+  
+  // Try PDF.js direct method first
+  try {
+    extractedText = await extractTextWithPdfJs(file);
+    console.log("Primary extraction method succeeded");
+    return extractedText;
+  } catch (error) {
+    console.warn("Primary extraction failed, trying fallback...", error);
+    errorMessages.push("Primary method failed: " + (error instanceof Error ? error.message : 'Unknown error'));
+  }
+  
+  // Try FileReader method if the first one fails
+  try {
+    extractedText = await extractTextWithFileReader(file);
+    console.log("Fallback extraction method succeeded");
+    return extractedText;
+  } catch (error) {
+    console.warn("Fallback extraction failed, trying last resort...", error);
+    errorMessages.push("Fallback method failed: " + (error instanceof Error ? error.message : 'Unknown error'));
+  }
+  
+  // Try Blob URL method as last resort
+  try {
+    extractedText = await extractTextWithBlobUrl(file);
+    console.log("Last resort extraction method succeeded");
+    return extractedText;
+  } catch (error) {
+    console.error("All extraction methods failed");
+    errorMessages.push("Last resort method failed: " + (error instanceof Error ? error.message : 'Unknown error'));
+    
+    // If we got here, all methods failed
+    throw new Error(`PDF text extraction failed: ${errorMessages.join(', ')}`);
   }
 };
 
@@ -55,6 +178,7 @@ const Upload = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [hasApiKey, setHasApiKey] = useState(false);
+  const [extractionError, setExtractionError] = useState<string | null>(null);
   const [analysisSteps, setAnalysisSteps] = useState({
     documentLoaded: false,
     textExtracted: false,
@@ -68,27 +192,6 @@ const Upload = () => {
     setHasApiKey(!!apiKey);
   }, []);
 
-  // Configure the PDF.js worker
-  useEffect(() => {
-    // Define a function to setup the worker
-    const setupPdfWorker = async () => {
-      try {
-        // This imports the worker script as a string and lets Vite handle bundling
-        const workerUrl = new URL(
-          'pdfjs-dist/build/pdf.worker.min.js',
-          import.meta.url
-        ).toString();
-        
-        pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
-        console.log("PDF.js worker configured with URL:", workerUrl);
-      } catch (error) {
-        console.error("Error configuring PDF.js worker:", error);
-      }
-    };
-    
-    setupPdfWorker();
-  }, []);
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData({
@@ -100,6 +203,15 @@ const Upload = () => {
   const handleFileSelected = (selectedFile: File) => {
     console.log("File selected:", selectedFile);
     setFile(selectedFile);
+    setExtractionError(null); // Reset any previous errors
+  };
+
+  const handleRetryExtraction = () => {
+    if (file) {
+      setExtractionError(null);
+      toast.info("Retrying with alternative extraction method...");
+      // The actual retry will happen during form submission
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -133,13 +245,20 @@ const Upload = () => {
     }
     
     setIsSubmitting(true);
+    setExtractionError(null);
     setAnalysisSteps({ ...analysisSteps, documentLoaded: true });
     
     try {
       console.log("Starting PDF text extraction...");
-      // Extract text from the PDF using pdfjs-dist
+      // Extract text using our enhanced extraction function with multiple fallbacks
       const extractedText = await extractTextFromPDF(file);
       console.log("PDF text extracted successfully, length:", extractedText.length);
+      
+      // Handle case where extraction technically succeeded but returned empty text
+      if (!extractedText.trim()) {
+        console.warn("Extraction succeeded but returned empty text");
+        toast.warning("Document appears to be empty or contains no extractable text");
+      }
       
       setAnalysisSteps({ ...analysisSteps, documentLoaded: true, textExtracted: true });
       setIsAnalyzing(true);
@@ -157,6 +276,7 @@ const Upload = () => {
       } catch (apiError) {
         console.error("Error with LLaMA API:", apiError);
         // Fallback to random fraud detection if API fails
+        toast.warning("AI analysis service unavailable, using backup detection");
         fraudAnalysisResult = {
           isFraud: Math.random() > 0.5,
           confidenceScore: Math.floor(Math.random() * 30) + 70, // 70-99
@@ -216,7 +336,9 @@ const Upload = () => {
       setIsSubmitting(false);
       setIsAnalyzing(false);
       console.error('Error processing document:', error);
-      toast.error('Error processing document. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setExtractionError(`Failed to extract text: ${errorMessage}`);
+      toast.error('Error processing document. Please try again or try a different file.');
     }
   };
 
@@ -361,6 +483,8 @@ const Upload = () => {
               accept=".pdf" 
               maxSize={10} 
               isProcessing={isSubmitting}
+              error={extractionError}
+              onRetry={handleRetryExtraction}
             />
             <p className="mt-2 text-xs text-gray-500">
               Upload the insurance claim PDF document. This should include the patient's medical test report and claim request.

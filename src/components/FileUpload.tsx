@@ -1,24 +1,31 @@
 
 import React, { useState, useRef } from "react";
-import { Upload, FileText, X, Check, AlertCircle } from "lucide-react";
+import { Upload, FileText, X, Check, AlertCircle, RefreshCw } from "lucide-react";
 
 interface FileUploadProps {
   onFileSelected: (file: File) => void;
   accept?: string;
   maxSize?: number; // in MB
   isProcessing?: boolean;
+  onRetry?: () => void;
+  error?: string | null;
 }
 
 const FileUpload: React.FC<FileUploadProps> = ({ 
   onFileSelected, 
   accept = ".pdf", 
   maxSize = 10,
-  isProcessing = false
+  isProcessing = false,
+  onRetry,
+  error: externalError = null
 }) => {
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [internalError, setInternalError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Use external error if provided, otherwise use internal error
+  const error = externalError || internalError;
 
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
@@ -41,17 +48,23 @@ const FileUpload: React.FC<FileUploadProps> = ({
     // Check file type - support both MIME type and extension check
     const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
     if (!isPDF) {
-      setError('Please upload a PDF file');
+      setInternalError('Please upload a PDF file');
       return false;
     }
     
     // Check file size
     if (file.size > maxSize * 1024 * 1024) {
-      setError(`File size exceeds ${maxSize}MB limit`);
+      setInternalError(`File size exceeds ${maxSize}MB limit`);
       return false;
     }
     
-    setError(null);
+    // Check if file is empty
+    if (file.size === 0) {
+      setInternalError('File appears to be empty');
+      return false;
+    }
+    
+    setInternalError(null);
     return true;
   };
 
@@ -66,7 +79,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
     if (validateFile(droppedFile)) {
       setFile(droppedFile);
       onFileSelected(droppedFile);
-      console.log("File dropped:", droppedFile.name, droppedFile.type);
+      console.log("File dropped:", droppedFile.name, droppedFile.type, droppedFile.size);
     }
   };
 
@@ -77,13 +90,13 @@ const FileUpload: React.FC<FileUploadProps> = ({
     if (validateFile(selectedFile)) {
       setFile(selectedFile);
       onFileSelected(selectedFile);
-      console.log("File selected:", selectedFile.name, selectedFile.type);
+      console.log("File selected:", selectedFile.name, selectedFile.type, selectedFile.size);
     }
   };
 
   const removeFile = () => {
     setFile(null);
-    setError(null);
+    setInternalError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -91,6 +104,12 @@ const FileUpload: React.FC<FileUploadProps> = ({
 
   const triggerFileInput = () => {
     fileInputRef.current?.click();
+  };
+
+  const handleRetry = () => {
+    if (onRetry && file) {
+      onRetry();
+    }
   };
 
   return (
@@ -163,9 +182,24 @@ const FileUpload: React.FC<FileUploadProps> = ({
           </div>
           <div className="mt-3 flex items-center">
             <div className="flex-1 bg-gray-200 rounded-full h-1.5">
-              <div className={`h-1.5 rounded-full ${isProcessing ? 'bg-yellow-500 animate-pulse' : 'bg-health-primary'}`} style={{ width: '100%' }}></div>
+              <div 
+                className={`h-1.5 rounded-full ${
+                  error ? 'bg-red-500' : 
+                  isProcessing ? 'bg-yellow-500 animate-pulse' : 
+                  'bg-health-primary'
+                }`} 
+                style={{ width: '100%' }}
+              ></div>
             </div>
-            {!isProcessing && <Check className="h-4 w-4 text-green-500 ml-2" />}
+            {!isProcessing && !error && <Check className="h-4 w-4 text-green-500 ml-2" />}
+            {error && onRetry && (
+              <button 
+                onClick={handleRetry}
+                className="ml-2 p-1 rounded-full hover:bg-gray-200 text-yellow-600 focus:outline-none"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </div>
       )}
