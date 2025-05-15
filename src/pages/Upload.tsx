@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
@@ -8,6 +7,9 @@ import { toast } from '@/components/ui/sonner';
 import * as pdfjsLib from 'pdfjs-dist';
 import ApiKeyInput from '@/components/ApiKeyInput';
 import { analyzeTextForFraud } from '@/services/llamaApi';
+
+// Import the worker directly using Vite's specific import.meta approach
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.js?url';
 
 // Function to extract text from PDF using pdfjs-dist
 const extractTextFromPDF = async (file: File): Promise<string> => {
@@ -59,11 +61,11 @@ const Upload = () => {
     setHasApiKey(!!apiKey);
   }, []);
 
-  // Configure the worker source correctly
+  // Configure the worker using the imported worker URL
   useEffect(() => {
-    const workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
-    pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
-    console.log("PDF.js worker configured:", workerSrc);
+    // Set worker directly using the imported URL
+    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+    console.log("PDF.js worker configured with local worker:", pdfWorkerUrl);
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
