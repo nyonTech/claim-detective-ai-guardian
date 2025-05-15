@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText, AlertTriangle, MessageCircle } from 'lucide-react';
@@ -75,7 +76,7 @@ const Results = () => {
                 <button className="text-health-primary text-xs hover:underline">Download PDF</button>
               </div>
               <div className="p-4 max-h-[500px] overflow-y-auto font-mono text-sm whitespace-pre-wrap">
-                {extractedText}
+                {extractedText || "No text extracted from document."}
               </div>
             </div>
           </div>
