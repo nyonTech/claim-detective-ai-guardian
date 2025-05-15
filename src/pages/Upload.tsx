@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
@@ -8,8 +7,7 @@ import { toast } from '@/components/ui/sonner';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Configure the worker source correctly
-const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.entry');
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsLib.version + '/pdf.worker.js';
 
 // Function to extract text from PDF using pdfjs-dist
 const extractTextFromPDF = async (file: File): Promise<string> => {
