@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from "react";
 import { Upload, FileText, X, Check, AlertCircle } from "lucide-react";
 
@@ -36,8 +35,9 @@ const FileUpload: React.FC<FileUploadProps> = ({
   };
 
   const validateFile = (file: File) => {
-    // Check file type
-    if (!file.type.includes('pdf')) {
+    // Check file type - support both MIME type and extension check
+    const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    if (!isPDF) {
       setError('Please upload a PDF file');
       return false;
     }

@@ -7,13 +7,6 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import { toast } from '@/components/ui/sonner';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configure the worker source correctly - point to CDN with correct version
-useEffect(() => {
-  // Set the worker source properly with correct CDN path
-  const workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-  pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
-}, []);
-
 // Function to extract text from PDF using pdfjs-dist
 const extractTextFromPDF = async (file: File): Promise<string> => {
   try {
@@ -50,6 +43,13 @@ const Upload = () => {
   const [file, setFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  // Configure the worker source correctly - moved inside the component
+  useEffect(() => {
+    const workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
+    console.log("PDF.js worker configured:", workerSrc);
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
