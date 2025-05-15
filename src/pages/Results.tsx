@@ -1,12 +1,28 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, AlertTriangle, MessageCircle, ArrowRight } from 'lucide-react';
+import { FileText, AlertTriangle, MessageCircle } from 'lucide-react';
 import FraudBadge from '@/components/FraudBadge';
 
-// Mock data for the extracted text from PDF
-const mockExtractedText = `MEDICAL REPORT
-Patient: Jessica Smith
+const Results = () => {
+  const navigate = useNavigate();
+  const [claimData, setClaimData] = useState<any>(null);
+  const [extractedText, setExtractedText] = useState<string>("");
+
+  useEffect(() => {
+    // Retrieve claim data from session storage
+    const storedData = sessionStorage.getItem('claimData');
+    if (storedData) {
+      const parsedData = JSON.parse(storedData);
+      setClaimData(parsedData);
+      
+      // Set extracted text if available
+      if (parsedData.extractedText) {
+        setExtractedText(parsedData.extractedText);
+      } else {
+        // Fallback to mock text if no extracted text is available
+        setExtractedText(`MEDICAL REPORT
+Patient: ${parsedData.patientName}
 DOB: 05/12/1978
 Date of Service: 04/28/2025
 
@@ -57,35 +73,39 @@ J2550 - Injection, promethazine HCL up to 50mg - $85.00
 Total Amount: $1,850.00
 
 Provider Signature: [Signed]
-Date: 04/28/2025`;
-
-// Mock fraud detection result
-const mockFraudResult = {
-  isFraud: true,
-  confidenceScore: 87,
-  reasons: [
-    "Inconsistency in dates: Claim form dated 05/02/2025 but service date is 04/28/2025",
-    "Procedure code 96374 (IV push) billed separately from hydration therapy",
-    "Diagnosis code G43.009 does not typically warrant CT scan",
-  ],
-  suggestedActions: [
-    "Request additional documentation to verify medical necessity of CT scan",
-    "Verify procedure code combination for IV therapies",
-    "Review previous claims for similar patterns",
-  ],
-};
-
-const Results = () => {
-  const navigate = useNavigate();
-  const [claimData, setClaimData] = useState<any>(null);
-
-  useEffect(() => {
-    // Retrieve claim data from session storage
-    const storedData = sessionStorage.getItem('claimData');
-    if (storedData) {
-      setClaimData(JSON.parse(storedData));
+Date: 04/28/2025`);
+      }
     }
   }, []);
+
+  // Mock fraud detection result
+  const mockFraudResult = claimData?.isFraud ? {
+    isFraud: true,
+    confidenceScore: 87,
+    reasons: [
+      "Inconsistency in dates: Claim form dated 05/02/2025 but service date is 04/28/2025",
+      "Procedure code 96374 (IV push) billed separately from hydration therapy",
+      "Diagnosis code G43.009 does not typically warrant CT scan",
+    ],
+    suggestedActions: [
+      "Request additional documentation to verify medical necessity of CT scan",
+      "Verify procedure code combination for IV therapies",
+      "Review previous claims for similar patterns",
+    ],
+  } : {
+    isFraud: false,
+    confidenceScore: 95,
+    reasons: [
+      "All dates consistent between service and claim submission",
+      "Procedure codes appropriate for diagnosis",
+      "Documentation complete and supports medical necessity",
+    ],
+    suggestedActions: [
+      "Approve claim for processing",
+      "Standard review of provider claims history",
+      "No additional documentation needed",
+    ],
+  };
 
   return (
     <div className="page-container animate-fade-in">
@@ -111,7 +131,7 @@ const Results = () => {
                 <button className="text-health-primary text-xs hover:underline">Download PDF</button>
               </div>
               <div className="p-4 max-h-[500px] overflow-y-auto font-mono text-sm whitespace-pre-wrap">
-                {mockExtractedText}
+                {extractedText}
               </div>
             </div>
           </div>
@@ -120,7 +140,7 @@ const Results = () => {
         {/* Right column - Analysis Results */}
         <div className="order-1 lg:order-2">
           <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-            <FraudBadge isFraud={mockFraudResult.isFraud} size="lg" className="mb-4" />
+            <FraudBadge isFraud={claimData?.isFraud || false} size="lg" className="mb-4" />
             
             <div className="mb-6">
               <div className="flex justify-between items-center mb-1.5">
@@ -130,7 +150,7 @@ const Results = () => {
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div 
                   className={`h-2 rounded-full ${
-                    mockFraudResult.isFraud ? 'bg-health-warning' : 'bg-health-success'
+                    claimData?.isFraud ? 'bg-health-warning' : 'bg-health-success'
                   }`} 
                   style={{ width: `${mockFraudResult.confidenceScore}%` }}
                 ></div>
@@ -155,13 +175,13 @@ const Results = () => {
                   </div>
                   <div>
                     <p className="text-gray-500">File Size</p>
-                    <p className="font-medium">{(claimData.fileSize / 1024 / 1024).toFixed(2)} MB</p>
+                    <p className="font-medium">{claimData.fileSize ? ((claimData.fileSize / 1024 / 1024).toFixed(2) + ' MB') : 'N/A'}</p>
                   </div>
                 </div>
               </div>
             )}
             
-            {mockFraudResult.isFraud && (
+            {claimData?.isFraud && (
               <div className="mb-6">
                 <div className="flex items-center mb-3">
                   <AlertTriangle className="h-4 w-4 text-red-500 mr-2" />

@@ -1,55 +1,104 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText, Users, AlertTriangle, CheckCircle, TrendingUp, Upload } from 'lucide-react';
 import FraudBadge from '@/components/FraudBadge';
 
+// Type definition for claim data
+interface ClaimData {
+  id: string;
+  patientName: string;
+  patientAge: string;
+  claimAmount: string;
+  date: string;
+  isFraud: boolean;
+  reason: string;
+  fileName?: string;
+}
+
 const Dashboard = () => {
   const navigate = useNavigate();
+  const [recentClaims, setRecentClaims] = useState<ClaimData[]>([]);
   
-  // Mock recent cases
-  const recentCases = [
+  // Mock recent cases for initial display
+  const mockCases = [
     {
       id: 'CLM-2023-9871',
       patientName: 'Robert Chen',
+      patientAge: '45',
+      claimAmount: '$2,450.00',
       date: 'May 14, 2025',
-      amount: '$2,450.00',
       isFraud: false,
       reason: 'All documents verified'
     },
     {
       id: 'CLM-2023-9870',
       patientName: 'Jessica Smith',
+      patientAge: '32',
+      claimAmount: '$8,720.50',
       date: 'May 13, 2025',
-      amount: '$8,720.50',
       isFraud: true,
       reason: 'Mismatched procedure codes'
     },
     {
       id: 'CLM-2023-9869',
       patientName: 'Michael Johnson',
+      patientAge: '58',
+      claimAmount: '$1,340.75',
       date: 'May 12, 2025',
-      amount: '$1,340.75',
       isFraud: false,
       reason: 'All documents verified'
     },
     {
       id: 'CLM-2023-9868',
       patientName: 'Emma Williams',
+      patientAge: '29',
+      claimAmount: '$12,650.00',
       date: 'May 11, 2025',
-      amount: '$12,650.00',
       isFraud: true,
       reason: 'Duplicate claim submission'
     }
   ];
   
-  // Stats data
-  const stats = [
-    { label: 'Claims Analyzed', value: '324', icon: FileText, color: 'bg-blue-100 text-blue-700' },
-    { label: 'Fraud Detected', value: '42', icon: AlertTriangle, color: 'bg-red-100 text-red-700' },
-    { label: 'Verified Claims', value: '282', icon: CheckCircle, color: 'bg-green-100 text-green-700' },
-    { label: 'Detection Rate', value: '13%', icon: TrendingUp, color: 'bg-purple-100 text-purple-700' }
-  ];
+  useEffect(() => {
+    // Get claims from localStorage
+    const storedClaims = localStorage.getItem('claims');
+    let claims = [];
+    
+    if (storedClaims) {
+      // Parse stored claims and format dates
+      claims = JSON.parse(storedClaims).map((claim: any) => ({
+        ...claim,
+        date: new Date(claim.date).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        })
+      }));
+    }
+    
+    // Combine with mock data if there are few or no stored claims
+    if (claims.length < 2) {
+      setRecentClaims([...claims, ...mockCases].slice(0, 6));
+    } else {
+      setRecentClaims(claims.slice(0, 6)); // Show only most recent 6
+    }
+  }, []);
+  
+  // Stats data calculation
+  const calculateStats = () => {
+    const totalClaims = recentClaims.length;
+    const fraudClaims = recentClaims.filter(claim => claim.isFraud).length;
+    const verifiedClaims = totalClaims - fraudClaims;
+    const detectionRate = totalClaims > 0 ? Math.round((fraudClaims / totalClaims) * 100) : 0;
+    
+    return [
+      { label: 'Claims Analyzed', value: totalClaims.toString(), icon: FileText, color: 'bg-blue-100 text-blue-700' },
+      { label: 'Fraud Detected', value: fraudClaims.toString(), icon: AlertTriangle, color: 'bg-red-100 text-red-700' },
+      { label: 'Verified Claims', value: verifiedClaims.toString(), icon: CheckCircle, color: 'bg-green-100 text-green-700' },
+      { label: 'Detection Rate', value: `${detectionRate}%`, icon: TrendingUp, color: 'bg-purple-100 text-purple-700' }
+    ];
+  };
 
   return (
     <div className="page-container animate-fade-in">
@@ -69,7 +118,7 @@ const Dashboard = () => {
       
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {stats.map((stat, index) => (
+        {calculateStats().map((stat, index) => (
           <div key={index} className="health-card">
             <div className="flex items-start">
               <div className={`p-2 rounded-lg ${stat.color}`}>
@@ -121,7 +170,7 @@ const Dashboard = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {recentCases.map((claim) => (
+                {recentClaims.map((claim) => (
                   <tr key={claim.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{claim.id}</div>
@@ -133,7 +182,7 @@ const Dashboard = () => {
                       <div className="text-sm text-gray-500">{claim.date}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{claim.amount}</div>
+                      <div className="text-sm text-gray-900">{claim.claimAmount}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <FraudBadge isFraud={claim.isFraud} size="sm" />
@@ -145,7 +194,11 @@ const Dashboard = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button 
-                        onClick={() => navigate('/results')}
+                        onClick={() => {
+                          // Store claim data in sessionStorage for viewing
+                          sessionStorage.setItem('claimData', JSON.stringify(claim));
+                          navigate('/results');
+                        }}
                         className="text-health-primary hover:text-health-primary/80"
                       >
                         View details

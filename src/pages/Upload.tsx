@@ -1,10 +1,70 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import FileUpload from '@/components/FileUpload';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { toast } from '@/components/ui/sonner';
+
+// Mock function to extract text from PDF
+const extractTextFromPDF = (file: File): Promise<string> => {
+  return new Promise((resolve) => {
+    // Simulate PDF processing delay
+    setTimeout(() => {
+      // This is a mock function - in a real app, we would use a library like pdf.js
+      // to extract text from the PDF
+      const mockExtractedText = `MEDICAL REPORT
+Patient: ${file.name.split('.')[0]}
+DOB: 05/12/1978
+Date of Service: 05/10/2025
+
+CLINICAL INFORMATION:
+Patient presents with complaints of severe headache, dizziness, and nausea for the past 3 days. History of migraines. No recent trauma reported.
+
+DIAGNOSTIC TESTS:
+- CT Scan of Head: Performed on 05/10/2025
+- CBC, Comprehensive Metabolic Panel
+- Urinalysis
+
+FINDINGS:
+CT Scan shows no acute intracranial abnormality. No evidence of hemorrhage, mass effect, or midline shift. Ventricles are normal in size and configuration.
+
+Laboratory results:
+- WBC: 7.2 k/uL (Normal range: 4.5-11.0)
+- Hgb: 14.1 g/dL (Normal range: 12.0-16.0)
+- Glucose: 102 mg/dL (Normal range: 70-99)
+- BUN: 15 mg/dL (Normal range: 7-20)
+- Creatinine: 0.9 mg/dL (Normal range: 0.6-1.2)
+
+DIAGNOSIS:
+1. Acute migraine without aura (G43.009)
+2. Dehydration, mild (E86.0)
+
+TREATMENT:
+1. Sumatriptan 50mg oral, 1 tablet at onset, may repeat after 2 hours if needed
+2. IV fluids administered: 1L NS
+3. Prochlorperazine 10mg IV for nausea
+4. Recommended rest in dark, quiet environment
+
+INSURANCE CLAIM FORM
+Claim #: CLM-${Math.floor(10000 + Math.random() * 90000)}
+Insurance ID: ${file.name.split('.')[0].substring(0, 3).toUpperCase()}-${Math.floor(10000 + Math.random() * 90000)}-Z
+Date Submitted: 05/14/2025
+
+Procedures:
+70450 - CT scan of head without contrast - $1,250.00
+96374 - IV push, single or initial substance - $175.00
+J2550 - Injection, promethazine HCL up to 50mg - $85.00
+96360 - IV infusion, hydration, initial - $340.00
+
+Total Amount: $1,850.00
+
+Provider Signature: [Signed]
+Date: 05/10/2025`;
+
+      resolve(mockExtractedText);
+    }, 2000);
+  });
+};
 
 const Upload = () => {
   const navigate = useNavigate();
@@ -30,7 +90,7 @@ const Upload = () => {
     setFile(selectedFile);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Basic validation
@@ -56,24 +116,57 @@ const Upload = () => {
     
     setIsSubmitting(true);
     
-    // Simulate form submission and analysis process
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setIsAnalyzing(true);
-      
-      // Store form data in session storage for use in the results page
-      sessionStorage.setItem('claimData', JSON.stringify({
-        ...formData,
-        fileName: file.name,
-        fileSize: file.size,
-      }));
-      
-      // Simulate the analysis process
+    // Extract text from PDF (mock function)
+    try {
+      // Process form submission
       setTimeout(() => {
-        setIsAnalyzing(false);
-        navigate('/results');
-      }, 3000);
-    }, 1500);
+        setIsSubmitting(false);
+        setIsAnalyzing(true);
+        
+        // Extract text from the PDF (simulated)
+        extractTextFromPDF(file).then(extractedText => {
+          // Generate a unique ID for the claim
+          const claimId = `CLM-${Date.now().toString().substring(6)}`;
+          
+          // Prepare data to store
+          const claimData = {
+            id: claimId,
+            patientName: formData.patientName,
+            patientAge: formData.patientAge,
+            claimAmount: formData.claimAmount,
+            claimDescription: formData.claimDescription,
+            fileName: file.name,
+            fileSize: file.size,
+            extractedText: extractedText,
+            date: new Date().toISOString(),
+            isFraud: Math.random() > 0.5, // Randomly determine fraud for demo purposes
+            reason: Math.random() > 0.5 ? 'Mismatched procedure codes' : 'All documents verified',
+            submittedAt: new Date().toISOString()
+          };
+          
+          // Store in session storage for the results page
+          sessionStorage.setItem('claimData', JSON.stringify(claimData));
+          
+          // Get existing claims from localStorage or initialize empty array
+          const existingClaims = JSON.parse(localStorage.getItem('claims') || '[]');
+          
+          // Add new claim to the beginning of the array
+          existingClaims.unshift(claimData);
+          
+          // Store updated claims array in localStorage
+          localStorage.setItem('claims', JSON.stringify(existingClaims));
+          
+          // Navigate to results page after a short delay
+          setTimeout(() => {
+            setIsAnalyzing(false);
+            navigate('/results');
+          }, 3000);
+        });
+      }, 1500);
+    } catch (error) {
+      setIsSubmitting(false);
+      toast.error('Error processing document. Please try again.');
+    }
   };
 
   if (isAnalyzing) {
