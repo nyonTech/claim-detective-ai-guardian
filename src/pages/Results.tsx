@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText, AlertTriangle, MessageCircle } from 'lucide-react';
@@ -19,61 +18,6 @@ const Results = () => {
       // Set extracted text if available
       if (parsedData.extractedText) {
         setExtractedText(parsedData.extractedText);
-      } else {
-        // Fallback to mock text if no extracted text is available
-        setExtractedText(`MEDICAL REPORT
-Patient: ${parsedData.patientName}
-DOB: 05/12/1978
-Date of Service: 04/28/2025
-
-CLINICAL INFORMATION:
-Patient presents with complaints of severe headache, dizziness, and nausea for the past 3 days. History of migraines. No recent trauma reported.
-
-DIAGNOSTIC TESTS:
-- CT Scan of Head: Performed on 04/28/2025
-- CBC, Comprehensive Metabolic Panel
-- Urinalysis
-
-FINDINGS:
-CT Scan shows no acute intracranial abnormality. No evidence of hemorrhage, mass effect, or midline shift. Ventricles are normal in size and configuration.
-
-Laboratory results:
-- WBC: 7.2 k/uL (Normal range: 4.5-11.0)
-- Hgb: 14.1 g/dL (Normal range: 12.0-16.0)
-- Glucose: 102 mg/dL (Normal range: 70-99)
-- BUN: 15 mg/dL (Normal range: 7-20)
-- Creatinine: 0.9 mg/dL (Normal range: 0.6-1.2)
-
-DIAGNOSIS:
-1. Acute migraine without aura (G43.009)
-2. Dehydration, mild (E86.0)
-
-TREATMENT:
-1. Sumatriptan 50mg oral, 1 tablet at onset, may repeat after 2 hours if needed
-2. IV fluids administered: 1L NS
-3. Prochlorperazine 10mg IV for nausea
-4. Recommended rest in dark, quiet environment
-
-FOLLOW-UP:
-Patient advised to follow up with primary care physician in 1 week.
-If symptoms worsen, return to ED immediately.
-
-INSURANCE CLAIM FORM
-Claim #: CLM-2023-9875
-Insurance ID: JMS-45678-Z
-Provider: Memorial Medical Center
-Date Submitted: 05/02/2025
-
-Procedures:
-70450 - CT scan of head without contrast - $1,250.00
-96374 - IV push, single or initial substance - $175.00
-J2550 - Injection, promethazine HCL up to 50mg - $85.00
-96360 - IV infusion, hydration, initial - $340.00
-
-Total Amount: $1,850.00
-
-Provider Signature: [Signed]
-Date: 04/28/2025`);
       }
     }
   }, []);
