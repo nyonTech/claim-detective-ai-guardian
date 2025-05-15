@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import FileUpload from '@/components/FileUpload';
@@ -6,8 +7,12 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import { toast } from '@/components/ui/sonner';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configure the worker source correctly
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsLib.version + '/pdf.worker.js';
+// Configure the worker source correctly - point to CDN with correct version
+useEffect(() => {
+  // Set the worker source properly with correct CDN path
+  const workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
+}, []);
 
 // Function to extract text from PDF using pdfjs-dist
 const extractTextFromPDF = async (file: File): Promise<string> => {
@@ -15,7 +20,8 @@ const extractTextFromPDF = async (file: File): Promise<string> => {
     // Convert file to ArrayBuffer
     const arrayBuffer = await file.arrayBuffer();
     // Load the PDF document
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+    const pdf = await loadingTask.promise;
     let fullText = '';
 
     // Iterate through each page to extract text
@@ -54,6 +60,7 @@ const Upload = () => {
   };
 
   const handleFileSelected = (selectedFile: File) => {
+    console.log("File selected:", selectedFile);
     setFile(selectedFile);
   };
 
@@ -84,8 +91,10 @@ const Upload = () => {
     setIsSubmitting(true);
     
     try {
+      console.log("Starting PDF text extraction...");
       // Extract text from the PDF using pdfjs-dist
       const extractedText = await extractTextFromPDF(file);
+      console.log("PDF text extracted successfully");
       
       setIsAnalyzing(true);
       

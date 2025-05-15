@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from "react";
-import { Upload, FileText, X, Check } from "lucide-react";
+import { Upload, FileText, X, Check, AlertCircle } from "lucide-react";
 
 interface FileUploadProps {
   onFileSelected: (file: File) => void;
@@ -37,7 +37,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
 
   const validateFile = (file: File) => {
     // Check file type
-    if (!file.name.endsWith('.pdf')) {
+    if (!file.type.includes('pdf')) {
       setError('Please upload a PDF file');
       return false;
     }
@@ -63,6 +63,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
     if (validateFile(droppedFile)) {
       setFile(droppedFile);
       onFileSelected(droppedFile);
+      console.log("File dropped:", droppedFile.name, droppedFile.type);
     }
   };
 
@@ -73,6 +74,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
     if (validateFile(selectedFile)) {
       setFile(selectedFile);
       onFileSelected(selectedFile);
+      console.log("File selected:", selectedFile.name, selectedFile.type);
     }
   };
 
@@ -126,7 +128,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
             ref={fileInputRef}
             type="file"
             className="hidden"
-            accept={accept}
+            accept="application/pdf,.pdf"
             onChange={handleFileInput}
           />
         </div>
@@ -165,7 +167,8 @@ const FileUpload: React.FC<FileUploadProps> = ({
       )}
       
       {error && (
-        <div className="mt-2 text-sm text-red-600 animate-fade-in">
+        <div className="mt-2 text-sm text-red-600 animate-fade-in flex items-center">
+          <AlertCircle className="h-4 w-4 mr-1" />
           <p>{error}</p>
         </div>
       )}
