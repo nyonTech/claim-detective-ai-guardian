@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from "react";
 import { Upload, FileText, X, Check, AlertCircle } from "lucide-react";
 
@@ -5,12 +6,14 @@ interface FileUploadProps {
   onFileSelected: (file: File) => void;
   accept?: string;
   maxSize?: number; // in MB
+  isProcessing?: boolean;
 }
 
 const FileUpload: React.FC<FileUploadProps> = ({ 
   onFileSelected, 
   accept = ".pdf", 
-  maxSize = 10 
+  maxSize = 10,
+  isProcessing = false
 }) => {
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -153,15 +156,16 @@ const FileUpload: React.FC<FileUploadProps> = ({
               onClick={removeFile}
               className="p-1 rounded-full hover:bg-gray-200 text-gray-500 focus:outline-none"
               aria-label="Remove file"
+              disabled={isProcessing}
             >
               <X className="h-5 w-5" />
             </button>
           </div>
           <div className="mt-3 flex items-center">
             <div className="flex-1 bg-gray-200 rounded-full h-1.5">
-              <div className="bg-health-primary h-1.5 rounded-full w-full"></div>
+              <div className={`h-1.5 rounded-full ${isProcessing ? 'bg-yellow-500 animate-pulse' : 'bg-health-primary'}`} style={{ width: '100%' }}></div>
             </div>
-            <Check className="h-4 w-4 text-green-500 ml-2" />
+            {!isProcessing && <Check className="h-4 w-4 text-green-500 ml-2" />}
           </div>
         </div>
       )}

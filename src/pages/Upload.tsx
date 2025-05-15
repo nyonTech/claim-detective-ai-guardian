@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
@@ -8,27 +9,33 @@ import * as pdfjsLib from 'pdfjs-dist';
 import ApiKeyInput from '@/components/ApiKeyInput';
 import { analyzeTextForFraud } from '@/services/llamaApi';
 
-// Import the worker directly using Vite's specific import.meta approach
-import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.js?url';
-
 // Function to extract text from PDF using pdfjs-dist
 const extractTextFromPDF = async (file: File): Promise<string> => {
   try {
+    console.log("Starting PDF extraction with file:", file.name);
     // Convert file to ArrayBuffer
     const arrayBuffer = await file.arrayBuffer();
+    console.log("File converted to ArrayBuffer, size:", arrayBuffer.byteLength);
+    
     // Load the PDF document
     const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+    console.log("PDF loading task created");
+    
     const pdf = await loadingTask.promise;
+    console.log("PDF loaded successfully, pages:", pdf.numPages);
+    
     let fullText = '';
 
     // Iterate through each page to extract text
     for (let i = 1; i <= pdf.numPages; i++) {
+      console.log(`Processing page ${i} of ${pdf.numPages}`);
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
       const pageText = textContent.items.map((item: any) => item.str).join(' ');
       fullText += pageText + '\n\n';
     }
     
+    console.log("PDF text extraction completed successfully");
     return fullText;
   } catch (error) {
     console.error('Error extracting text from PDF:', error);
@@ -61,11 +68,25 @@ const Upload = () => {
     setHasApiKey(!!apiKey);
   }, []);
 
-  // Configure the worker using the imported worker URL
+  // Configure the PDF.js worker
   useEffect(() => {
-    // Set worker directly using the imported URL
-    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
-    console.log("PDF.js worker configured with local worker:", pdfWorkerUrl);
+    // Define a function to setup the worker
+    const setupPdfWorker = async () => {
+      try {
+        // This imports the worker script as a string and lets Vite handle bundling
+        const workerUrl = new URL(
+          'pdfjs-dist/build/pdf.worker.min.js',
+          import.meta.url
+        ).toString();
+        
+        pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
+        console.log("PDF.js worker configured with URL:", workerUrl);
+      } catch (error) {
+        console.error("Error configuring PDF.js worker:", error);
+      }
+    };
+    
+    setupPdfWorker();
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -118,7 +139,7 @@ const Upload = () => {
       console.log("Starting PDF text extraction...");
       // Extract text from the PDF using pdfjs-dist
       const extractedText = await extractTextFromPDF(file);
-      console.log("PDF text extracted successfully");
+      console.log("PDF text extracted successfully, length:", extractedText.length);
       
       setAnalysisSteps({ ...analysisSteps, documentLoaded: true, textExtracted: true });
       setIsAnalyzing(true);
@@ -335,7 +356,12 @@ const Upload = () => {
           
           <div className="mb-8">
             <label className="form-label mb-2">Upload Claim Document</label>
-            <FileUpload onFileSelected={handleFileSelected} accept=".pdf" maxSize={10} />
+            <FileUpload 
+              onFileSelected={handleFileSelected} 
+              accept=".pdf" 
+              maxSize={10} 
+              isProcessing={isSubmitting}
+            />
             <p className="mt-2 text-xs text-gray-500">
               Upload the insurance claim PDF document. This should include the patient's medical test report and claim request.
             </p>
