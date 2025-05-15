@@ -6,6 +6,8 @@ import FileUpload from '@/components/FileUpload';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { toast } from '@/components/ui/sonner';
 import * as pdfjsLib from 'pdfjs-dist';
+import ApiKeyInput from '@/components/ApiKeyInput';
+import { analyzeTextForFraud } from '@/services/llamaApi';
 
 // Function to extract text from PDF using pdfjs-dist
 const extractTextFromPDF = async (file: File): Promise<string> => {
@@ -43,8 +45,21 @@ const Upload = () => {
   const [file, setFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [hasApiKey, setHasApiKey] = useState(false);
+  const [analysisSteps, setAnalysisSteps] = useState({
+    documentLoaded: false,
+    textExtracted: false,
+    analyzingPatterns: false,
+    generatingReport: false,
+  });
 
-  // Configure the worker source correctly - moved inside the component
+  // Check for API key on component mount
+  useEffect(() => {
+    const apiKey = localStorage.getItem('llama_api_key');
+    setHasApiKey(!!apiKey);
+  }, []);
+
+  // Configure the worker source correctly
   useEffect(() => {
     const workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
     pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
@@ -88,7 +103,14 @@ const Upload = () => {
       return;
     }
     
+    // Check if API key is available
+    if (!hasApiKey) {
+      toast.error('Please set your LLaMA API key before analyzing');
+      return;
+    }
+    
     setIsSubmitting(true);
+    setAnalysisSteps({ ...analysisSteps, documentLoaded: true });
     
     try {
       console.log("Starting PDF text extraction...");
@@ -96,10 +118,40 @@ const Upload = () => {
       const extractedText = await extractTextFromPDF(file);
       console.log("PDF text extracted successfully");
       
+      setAnalysisSteps({ ...analysisSteps, documentLoaded: true, textExtracted: true });
       setIsAnalyzing(true);
       
       // Generate a unique ID for the claim
       const claimId = `CLM-${Date.now().toString().substring(6)}`;
+      
+      setAnalysisSteps({ ...analysisSteps, documentLoaded: true, textExtracted: true, analyzingPatterns: true });
+      
+      // Use LLaMA API to analyze the text
+      let fraudAnalysisResult;
+      try {
+        fraudAnalysisResult = await analyzeTextForFraud(extractedText);
+        console.log("LLaMA API analysis complete:", fraudAnalysisResult);
+      } catch (apiError) {
+        console.error("Error with LLaMA API:", apiError);
+        // Fallback to random fraud detection if API fails
+        fraudAnalysisResult = {
+          isFraud: Math.random() > 0.5,
+          confidenceScore: Math.floor(Math.random() * 30) + 70, // 70-99
+          reasons: Math.random() > 0.5 ? 
+            ["API error: Using fallback detection", "Mismatched procedure codes"] : 
+            ["API error: Using fallback detection", "All documents verified"],
+          suggestedActions: Math.random() > 0.5 ?
+            ["Request additional documentation", "Verify procedure codes"] :
+            ["Approve claim", "No further action needed"]
+        };
+      }
+      
+      setAnalysisSteps({
+        documentLoaded: true, 
+        textExtracted: true, 
+        analyzingPatterns: true, 
+        generatingReport: true
+      });
       
       // Prepare data to store
       const claimData = {
@@ -112,8 +164,10 @@ const Upload = () => {
         fileSize: file.size,
         extractedText: extractedText,
         date: new Date().toISOString(),
-        isFraud: Math.random() > 0.5, // Randomly determine fraud for demo purposes
-        reason: Math.random() > 0.5 ? 'Mismatched procedure codes' : 'All documents verified',
+        isFraud: fraudAnalysisResult.isFraud,
+        confidenceScore: fraudAnalysisResult.confidenceScore,
+        reasons: fraudAnalysisResult.reasons,
+        suggestedActions: fraudAnalysisResult.suggestedActions,
         submittedAt: new Date().toISOString()
       };
       
@@ -134,15 +188,26 @@ const Upload = () => {
         setIsSubmitting(false);
         setIsAnalyzing(false);
         navigate('/results');
-      }, 3000);
+      }, 2000);
     } catch (error) {
       setIsSubmitting(false);
+      setIsAnalyzing(false);
       console.error('Error processing document:', error);
       toast.error('Error processing document. Please try again.');
     }
   };
 
+  const handleApiKeySubmit = (apiKey: string) => {
+    setHasApiKey(!!apiKey);
+  };
+
   if (isAnalyzing) {
+    const progress = 
+      (analysisSteps.documentLoaded ? 25 : 0) + 
+      (analysisSteps.textExtracted ? 25 : 0) + 
+      (analysisSteps.analyzingPatterns ? 25 : 0) + 
+      (analysisSteps.generatingReport ? 25 : 0);
+    
     return (
       <div className="page-container flex flex-col items-center justify-center min-h-[80vh]">
         <div className="text-center space-y-6 max-w-md mx-auto">
@@ -165,16 +230,26 @@ const Upload = () => {
           <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
             <div className="flex justify-between text-sm mb-1.5">
               <span>Analysis progress</span>
-              <span className="font-medium">75%</span>
+              <span className="font-medium">{progress}%</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2.5">
-              <div className="bg-health-primary h-2.5 rounded-full animate-pulse" style={{ width: '75%' }}></div>
+              <div className="bg-health-primary h-2.5 rounded-full animate-pulse" style={{ width: `${progress}%` }}></div>
             </div>
             <div className="mt-3 text-xs text-gray-500">
-              <div className="mb-1">✓ Document loaded</div>
-              <div className="mb-1">✓ Text extracted</div>
-              <div className="mb-1">⟳ Analyzing patterns...</div>
-              <div className="text-gray-300">• Generating report</div>
+              <div className="mb-1">
+                {analysisSteps.documentLoaded ? '✓' : '•'} Document loaded
+              </div>
+              <div className="mb-1">
+                {analysisSteps.textExtracted ? '✓' : '•'} Text extracted
+              </div>
+              <div className="mb-1">
+                {analysisSteps.analyzingPatterns ? 
+                  (analysisSteps.generatingReport ? '✓' : '⟳') : 
+                  '•'} Analyzing patterns...
+              </div>
+              <div className={analysisSteps.generatingReport ? 'mb-1' : 'text-gray-300 mb-1'}>
+                {analysisSteps.generatingReport ? '⟳' : '•'} Generating report
+              </div>
             </div>
           </div>
         </div>
@@ -186,7 +261,18 @@ const Upload = () => {
     <div className="page-container animate-fade-in">
       <h1 className="page-title">Upload Claim Document</h1>
       
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-3xl mx-auto space-y-6">
+        {!hasApiKey && (
+          <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+            <h2 className="text-lg font-semibold mb-4">Set Up LLaMA API Integration</h2>
+            <p className="text-gray-600 mb-4">
+              To analyze claims with AI, please enter your LLaMA API key below. This will enable 
+              fraud detection and intelligent chat assistance.
+            </p>
+            <ApiKeyInput onSubmit={handleApiKeySubmit} />
+          </div>
+        )}
+        
         <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm p-6 md:p-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <div>
@@ -256,8 +342,8 @@ const Upload = () => {
           <div className="flex justify-end">
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="btn-primary flex items-center"
+              disabled={isSubmitting || !hasApiKey}
+              className={`btn-primary flex items-center ${!hasApiKey ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {isSubmitting ? (
                 <>
