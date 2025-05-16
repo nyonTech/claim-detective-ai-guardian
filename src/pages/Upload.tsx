@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
@@ -6,7 +5,6 @@ import FileUpload from '@/components/FileUpload';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { toast } from '@/components/ui/sonner';
 import * as pdfjsLib from 'pdfjs-dist';
-import ApiKeyInput from '@/components/ApiKeyInput';
 import { analyzeTextForFraud } from '@/services/llamaApi';
 
 // Configure the PDF.js worker - using a more robust approach
@@ -177,7 +175,8 @@ const Upload = () => {
   const [file, setFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [hasApiKey, setHasApiKey] = useState(false);
+  // API key is now hardcoded, so we always have it
+  const [hasApiKey, setHasApiKey] = useState(true);
   const [extractionError, setExtractionError] = useState<string | null>(null);
   const [analysisSteps, setAnalysisSteps] = useState({
     documentLoaded: false,
@@ -186,10 +185,10 @@ const Upload = () => {
     generatingReport: false,
   });
 
-  // Check for API key on component mount
+  // No need to check for API key anymore
   useEffect(() => {
-    const apiKey = localStorage.getItem('llama_api_key');
-    setHasApiKey(!!apiKey);
+    // Set hasApiKey to true since we're using a hardcoded key
+    setHasApiKey(true);
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -238,11 +237,7 @@ const Upload = () => {
       return;
     }
     
-    // Check if API key is available
-    if (!hasApiKey) {
-      toast.error('Please set your LLaMA API key before analyzing');
-      return;
-    }
+    // API key is hardcoded, no need to check
     
     setIsSubmitting(true);
     setExtractionError(null);
@@ -342,10 +337,6 @@ const Upload = () => {
     }
   };
 
-  const handleApiKeySubmit = (apiKey: string) => {
-    setHasApiKey(!!apiKey);
-  };
-
   if (isAnalyzing) {
     const progress = 
       (analysisSteps.documentLoaded ? 25 : 0) + 
@@ -407,16 +398,7 @@ const Upload = () => {
       <h1 className="page-title">Upload Claim Document</h1>
       
       <div className="max-w-3xl mx-auto space-y-6">
-        {!hasApiKey && (
-          <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-4">Set Up LLaMA API Integration</h2>
-            <p className="text-gray-600 mb-4">
-              To analyze claims with AI, please enter your LLaMA API key below. This will enable 
-              fraud detection and intelligent chat assistance.
-            </p>
-            <ApiKeyInput onSubmit={handleApiKeySubmit} />
-          </div>
-        )}
+        {/* Remove the API key input section entirely */}
         
         <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm p-6 md:p-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -494,7 +476,7 @@ const Upload = () => {
           <div className="flex justify-end">
             <button
               type="submit"
-              disabled={isSubmitting || !hasApiKey}
+              disabled={isSubmitting}
               className={`btn-primary flex items-center ${!hasApiKey ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {isSubmitting ? (

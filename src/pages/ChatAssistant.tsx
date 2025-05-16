@@ -1,9 +1,7 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Send } from 'lucide-react';
 import ChatMessage from '@/components/ChatMessage';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import ApiKeyInput from '@/components/ApiKeyInput';
 import { chatWithLlama } from '@/services/llamaApi';
 import { toast } from '@/components/ui/sonner';
 
@@ -28,15 +26,16 @@ const ChatAssistant = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [hasApiKey, setHasApiKey] = useState(false);
+  // API key is now hardcoded, so we always have it
+  const [hasApiKey, setHasApiKey] = useState(true);
   const [claimContext, setClaimContext] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   
-  // Initial setup - check API key and load claim data
+  // Initial setup - load claim data (no need to check API key)
   useEffect(() => {
-    const apiKey = localStorage.getItem('llama_api_key');
-    setHasApiKey(!!apiKey);
+    // API key is hardcoded now
+    setHasApiKey(true);
     
     const storedData = sessionStorage.getItem('claimData');
     if (storedData) {
@@ -57,21 +56,19 @@ const ChatAssistant = () => {
         
         setClaimContext(context);
         
-        // Add initial welcome message
+        // Add initial welcome message - now we'll always use the version that assumes we have an API key
         const initialMessages: Message[] = [
           {
             id: generateId(),
             isUser: false,
-            text: hasApiKey 
-              ? "Hello! I'm your HealthGuard Assistant. I can help you understand fraud detection results and recommend next steps for your claim investigation."
-              : "Hello! I'm your HealthGuard Assistant. Please set up your LLaMA API key to enable AI-powered chat assistance.",
+            text: "Hello! I'm your HealthGuard Assistant. I can help you understand fraud detection results and recommend next steps for your claim investigation.",
             timestamp: formatTime(new Date()),
             status: 'sent'
           }
         ];
         
-        // Add second message if we have claim context and API key
-        if (context && hasApiKey) {
+        // Add second message if we have claim context
+        if (context) {
           initialMessages.push({
             id: generateId(),
             isUser: false,
@@ -104,7 +101,7 @@ const ChatAssistant = () => {
         status: 'sent'
       }]);
     }
-  }, [hasApiKey]);
+  }, []);
   
   // Auto-scroll to bottom of messages
   useEffect(() => {
@@ -133,53 +130,40 @@ const ChatAssistant = () => {
         prev.map(msg => msg.id === userMessage.id ? {...msg, status: 'sent'} : msg)
       );
       
-      // Show typing indicator if we have an API key
-      if (hasApiKey) {
-        setIsTyping(true);
-        
-        // Send to LLaMA API
-        chatWithLlama(userMessage.text, claimContext || undefined)
-          .then(response => {
-            setIsTyping(false);
-            
-            const assistantMessage: Message = {
-              id: generateId(),
-              isUser: false,
-              text: response,
-              timestamp: formatTime(new Date()),
-              status: 'sent'
-            };
-            
-            setMessages(prev => [...prev, assistantMessage]);
-          })
-          .catch(error => {
-            console.error("Error with LLaMA API:", error);
-            setIsTyping(false);
-            
-            // Add error message
-            const errorMessage: Message = {
-              id: generateId(),
-              isUser: false,
-              text: "I'm sorry, I encountered an error processing your request. Please try again or check your API key.",
-              timestamp: formatTime(new Date()),
-              status: 'error'
-            };
-            
-            setMessages(prev => [...prev, errorMessage]);
-            toast.error("Error connecting to LLaMA API");
-          });
-      } else {
-        // If no API key, show a message asking to set it up
-        const noApiKeyMessage: Message = {
-          id: generateId(),
-          isUser: false,
-          text: "To chat with me, please set up your LLaMA API key first. This will enable AI-powered responses to your questions.",
-          timestamp: formatTime(new Date()),
-          status: 'sent'
-        };
-        
-        setMessages(prev => [...prev, noApiKeyMessage]);
-      }
+      // Show typing indicator - we know we always have an API key now
+      setIsTyping(true);
+      
+      // Send to LLaMA API
+      chatWithLlama(userMessage.text, claimContext || undefined)
+        .then(response => {
+          setIsTyping(false);
+          
+          const assistantMessage: Message = {
+            id: generateId(),
+            isUser: false,
+            text: response,
+            timestamp: formatTime(new Date()),
+            status: 'sent'
+          };
+          
+          setMessages(prev => [...prev, assistantMessage]);
+        })
+        .catch(error => {
+          console.error("Error with LLaMA API:", error);
+          setIsTyping(false);
+          
+          // Add error message
+          const errorMessage: Message = {
+            id: generateId(),
+            isUser: false,
+            text: "I'm sorry, I encountered an error processing your request. Please try again.",
+            timestamp: formatTime(new Date()),
+            status: 'error'
+          };
+          
+          setMessages(prev => [...prev, errorMessage]);
+          toast.error("Error connecting to LLaMA API");
+        });
     }, 500);
   };
   
@@ -199,37 +183,12 @@ const ChatAssistant = () => {
     }
   }, [inputValue]);
 
-  const handleApiKeySubmit = (apiKey: string) => {
-    setHasApiKey(!!apiKey);
-    
-    // Add a message to confirm API key setup
-    if (apiKey) {
-      const apiKeySetupMessage: Message = {
-        id: generateId(),
-        isUser: false,
-        text: "Great! I'm now connected to the LLaMA API. How can I help you with your healthcare claim?",
-        timestamp: formatTime(new Date()),
-        status: 'sent'
-      };
-      
-      setMessages(prev => [...prev, apiKeySetupMessage]);
-    }
-  };
-
   return (
     <div className="page-container animate-fade-in">
       <h1 className="page-title">Chat Assistant</h1>
       
       <div className="max-w-4xl mx-auto">
-        {!hasApiKey && (
-          <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-4">Set Up LLaMA API Integration</h2>
-            <p className="text-gray-600 mb-4">
-              To enable AI-powered chat assistance, please enter your LLaMA API key below.
-            </p>
-            <ApiKeyInput onSubmit={handleApiKeySubmit} />
-          </div>
-        )}
+        {/* Remove the API key input section entirely */}
         
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           {/* Chat history */}

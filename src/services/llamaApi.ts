@@ -1,4 +1,3 @@
-
 /**
  * Service for interacting with the LLaMA API
  */
@@ -9,13 +8,9 @@ const LLAMA_API_URL = 'https://api.perplexity.ai/chat/completions';
 // The model to use for LLaMA API requests
 const LLAMA_MODEL = 'meta-llama/Llama-4-Scout-17B-16E-Instruct';
 
-// Helper function to get API key from localStorage or prompt user if not available
+// Hardcoded API key - no need to prompt user for this anymore
 const getLlamaApiKey = (): string => {
-  const apiKey = localStorage.getItem('llama_api_key');
-  if (!apiKey) {
-    throw new Error('LLaMA API key not found. Please set your API key in the settings.');
-  }
-  return apiKey;
+  return 'sk-4f8g3h2j1k9l0mnoqrs8tuvwxzYz1234';
 };
 
 /**
